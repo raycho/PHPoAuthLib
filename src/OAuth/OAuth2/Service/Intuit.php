@@ -74,13 +74,22 @@ class Intuit extends AbstractService
         return new Uri('https://oauth.intuit.com/oauth/v1/get_request_token');
     }
 
-    protected function _nonce($len = 5) 
+    public function _nonce($len = 5)
     {
-        
+
         $tmp = str_split(Intuit::NONCE);
         shuffle($tmp);
-        
+
         return substr(implode('', $tmp), 0, $len);
+    }
+
+    protected function generateSignature($method, $url, $queryParams, $secret = '')
+    {
+        $signatureBase = $method.'&'.rawurlencode($url).'&'.rawurlencode($queryParams);
+        $key = $this->credentials->getConsumerSecret().'&'.$secret;
+        $signature = hash_hmac("sha1", $signatureBase, $key, true);
+        $signature = base64_encode($signature);
+        return $signature;
     }
 
     /**
@@ -93,7 +102,7 @@ class Intuit extends AbstractService
         }
 
         $bodyParams = array(
-            'oauth_callback'            => urlencode('http://www.oe.dev/intuit/authorize'),
+            'oauth_callback'            => rawurlencode('http://www.oe.dev/intuit/authorize'),
             'oauth_consumer_key'        => $this->credentials->getConsumerId(),
             'oauth_nonce'               => $this->_nonce(),
             'oauth_signature_method'    => 'HMAC-SHA1',
@@ -102,10 +111,8 @@ class Intuit extends AbstractService
         );
 
         $queryParams = http_build_query($bodyParams);
-        $signatureBase = 'GET&'.urlencode($this->getRequestTokenEndpoint()).'&'.urlencode($queryParams);
-        $key = $this->credentials->getConsumerSecret().'&';
-        $signature = hash_hmac("sha1", $signatureBase, $key, true);
-        $signature = base64_encode($signature);
+
+        $signature = $this->generateSignature('GET', $this->getRequestTokenEndpoint(), $queryParams);
         $url = $this->getRequestTokenEndpoint()."?".$queryParams.'&oauth_signature='.$signature;
         $uri = new Uri($url);
 
@@ -118,11 +125,11 @@ class Intuit extends AbstractService
 
         $parsedResult = array();
         parse_str($responseBody, $parsedResult);
-
+        $token = $parsedResult['oauth_token'];
         $token = $this->parseAccessTokenResponse(json_encode($parsedResult));
         $this->storage->storeAccessToken($this->service(), $token);
 
-        return $token;
+        return $parsedResult;
     }
 
     public function getAccessToken($realmId, $oauthToken, $oauthVerifier)
@@ -136,7 +143,7 @@ class Intuit extends AbstractService
         );
 
         // save oauth stuff
-        dd($responseBody);
+//        dd($responseBody);
     }
 
     /**
@@ -144,7 +151,8 @@ class Intuit extends AbstractService
      */
     protected function getAuthorizationMethod()
     {
-        return static::AUTHORIZATION_METHOD_HEADER_BEARER;
+//        return static::AUTHORIZATION_METHOD_HEADER_OAUTH;
+        return;
     }
 
     /**
@@ -188,5 +196,35 @@ class Intuit extends AbstractService
     public function getAuthorizationUrl($token, $callback)
     {
         return $this->getAuthorizationEndpoint().'?oauth_token='.$token->getAccessToken()."&oauth_callback=".$callback;
+    }
+
+    public function request(
+        $path,
+        $method = 'GET',
+        $body = null,
+        array $extraHeaders = array()
+    ) {
+        $params = [
+            'oauth_token'           => 'qyprd3VVTi05a8Ukbv2DNO2Z2CP1CwflHHrGUiAOyPMQ1CTB',
+            'oauth_nonce'           => $this->_nonce(),
+            'oauth_consumer_key'    => $this->credentials->getConsumerId(),
+            'oauth_signature_method' => 'HMAC-SHA1',
+            'oauth_timestamp'       => time(),
+            'oauth_version'        => '1.0'
+        ];
+      $responseBody = $this->httpClient->retrieveResponse(
+        new Uri(\Config::get('intuit.url') . $path),
+        $params,
+        $extraHeaders
+      );
+      dd($responseBody);
+        array_walk(
+            $params,
+            function (&$val, &$key) {
+                $key = strtolower($key);
+                $val = strtolower($key) . '=' . $val;
+            }
+        );
+        return parent::request($path, $method, $body, $extraHeaders);
     }
 }
