@@ -32,9 +32,9 @@
         "ext-openssl": "Allows for usage of secure connections with the stream-based HTTP client."
     },
     "autoload": {
-        "psr-0": {
-            "OAuth": "src",
-            "OAuth\\Unit": "tests"
+        "psr-4": {
+            "OAuth\\": "src",
+            "OAuth\\Unit\\": "tests"
         }
     },
     "extra": {
