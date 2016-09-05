@@ -11,7 +11,7 @@ use OAuth\Common\Http\Client\ClientInterface;
 use OAuth\Common\Http\Uri\UriInterface;
 use OAuth\OAuth1\Signature\SignatureInterface;
 
-class QuickBooks extends AbstractService
+class Quickbooks extends AbstractService
 {
     /**
      * {@inheritdoc}
